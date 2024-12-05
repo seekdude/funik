@@ -154,7 +154,8 @@
 
         // Search functionality
         // Handle search input
-        document.getElementById('search-input').addEventListener('input', async function () {
+      // Handle search input
+document.getElementById('search-input').addEventListener('input', async function () {
     const query = this.value;
     const searchResultsContainer = document.getElementById('search-results');
 
@@ -164,14 +165,19 @@
     }
 
     const accessToken = 'bpk.iFfsd6-dNyJV9BhF1pb_FHpRu0aFU2miSLu9wYiCifqk'; // Replace with your Baato API key
-    const searchUrl = `https://api.baato.io/api/v1/search?key=${accessToken}&q=${query}&limit=5`;
+    const userLocation = map.getCenter(); // Get current center of the map (lat, lon)
+    const lat = userLocation.lat;
+    const lon = userLocation.lng;
+
+    // Call the Nearby Places API
+    const nearbyPlacesUrl = `https://api.baato.io/api/v1/search/nearby?type=${query}&lat=${lat}&lon=${lon}&key=${accessToken}&limit=5`;
 
     try {
-        const searchResponse = await fetch(searchUrl);
-        const searchData = await searchResponse.json();
+        const response = await fetch(nearbyPlacesUrl);
+        const data = await response.json();
 
-        if (searchData.status === 200 && searchData.data.length > 0) {
-            searchResultsContainer.innerHTML = searchData.data.map(result => {
+        if (data.status === 200 && data.data.length > 0) {
+            searchResultsContainer.innerHTML = data.data.map(result => {
                 return `<div class="search-result" data-place-id="${result.placeId}">
                             <b>${result.name}</b><br>${result.address || ''}
                         </div>`;
@@ -184,14 +190,13 @@
                     console.log("Selected placeId:", placeId);
 
                     // Fetch details for the selected place using Places API
-                    const placesUrl = `https://api.baato.io/api/v1/places?key=${accessToken}&placeId=${placeId}`;
+                    const placeDetailsUrl = `https://api.baato.io/api/v1/places?key=${accessToken}&placeId=${placeId}`;
                     try {
-                        const placesResponse = await fetch(placesUrl);
-                        const placesData = await placesResponse.json();
-                        console.log("Places API Response:", placesData);
+                        const placeDetailsResponse = await fetch(placeDetailsUrl);
+                        const placeDetailsData = await placeDetailsResponse.json();
 
-                        if (placesData.status === 200 && placesData.data.length > 0) {
-                            const { centroid } = placesData.data[0];
+                        if (placeDetailsData.status === 200 && placeDetailsData.data.length > 0) {
+                            const { centroid } = placeDetailsData.data[0];
 
                             if (!centroid || !centroid.lat || !centroid.lon) {
                                 alert("Coordinates not available for this location.");
@@ -209,7 +214,7 @@
                             new mapboxgl.Marker({ color: "green" })
                                 .setLngLat([centroid.lon, centroid.lat])
                                 .setPopup(
-                                    new mapboxgl.Popup().setHTML(`<b>${placesData.data[0].name}</b><br>${placesData.data[0].address}`)
+                                    new mapboxgl.Popup().setHTML(`<b>${placeDetailsData.data[0].name}</b><br>${placeDetailsData.data[0].address}`)
                                 )
                                 .addTo(map);
 
@@ -232,6 +237,7 @@
         searchResultsContainer.innerHTML = '<div>Error fetching results.</div>';
     }
 });
+
 
 
 
