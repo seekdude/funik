@@ -1,8 +1,13 @@
-import { useState } from 'react'
-import { supabase } from './createclient'
+import React from "react";
+import Map from "./components/Map";
+import "./index.css";
 
-const App=()=>{
+const App = () => {
+  return (
+    <div>
+      <Map />
+    </div>
+  );
+};
 
-}
-
-export default App
+export default App;
