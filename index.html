@@ -1,13 +1,241 @@
-<!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+    <title>Fly to Current Location</title>
+    <script src="https://cdn.maptiler.com/maplibre-gl-js/v1.13.0-rc.4/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css" rel="stylesheet" />
+
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #map-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #baato-map {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        #fly-button {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 10;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #fly-button:hover {
+            background-color: #0056b3;
+        }
+        #search-container {
+            position: absolute;
+            top: 110px;
+            left: 10px;
+            z-index: 10;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #search-input {
+            width: 200px;
+            padding: 5px;
+            font-size: 14px;
+        }
+        #search-results {
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .search-result {
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .search-result:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map-container"></div>
+    <div id="baato-map">
+        <a href="https://baato.io" rel="noopener noreferrer nofollow" target="_blank">
+            <img src="https://sgp1.digitaloceanspaces.com/baatocdn/images/BaatoLogo.svg" alt="Baato" width="80px" />
+        </a>
+    </div>
+    <button id="fly-button">Fly to My Location</button>
+
+    <div id="search-container">
+        <input id="search-input" type="text" placeholder="Search places..." />
+        <div id="search-results"></div>
+    </div>
+
+    <script>
+        // Initialize the map with default settings
+        var map = new mapboxgl.Map({
+            container: "map-container",
+            style: "https://api.baato.io/api/v1/styles/breeze?key=bpk.iFfsd6-dNyJV9BhF1pb_FHpRu0aFU2miSLu9wYiCifqk", // Baato stylesheet location
+            center: [85.31853583740946, 27.701739466949107], // Default starting position [lng, lat]
+            zoom: 14, // Default starting zoom
+        });
+
+        // Add navigation controls (zoom in/out)
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Function to get the user's location and fly to it
+        function flyToCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const userLocation = [position.coords.longitude, position.coords.latitude];
+
+                        // Debugging: Log user location coordinates
+                        console.log("User's location:", userLocation);
+
+                        // Fly the map to the user's location
+                        map.flyTo({
+                            center: userLocation,
+                            zoom: 14,
+                            essential: true, // Ensures animation runs smoothly
+                        });
+
+                        // Add a marker at the user's location
+                        new mapboxgl.Marker({ color: "blue" }) // Blue marker
+                            .setLngLat(userLocation) // Set marker position
+                            .setPopup(
+                                new mapboxgl.Popup().setHTML("<b>You are here!</b>")
+                            ) // Add popup to marker
+                            .addTo(map); // Add marker to the map
+                    },
+                    function (error) {
+                        console.error("Geolocation error: ", error);
+                        alert("Could not retrieve your location. Please try again.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        // Add event listener to the button
+        document.getElementById("fly-button").addEventListener("click", flyToCurrentLocation);
+
+        // Add a click event to drop a pin on the map
+        map.on('click', function (e) {
+            const coordinates = [e.lngLat.lng, e.lngLat.lat];
+
+            // Add a marker at the clicked location
+            new mapboxgl.Marker({ color: "red" }) // Red marker
+                .setLngLat(coordinates) // Set marker position
+                .setPopup(
+                    new mapboxgl.Popup().setHTML(
+                        `<b>Pinned Location</b><br>Longitude: ${coordinates[0]}<br>Latitude: ${coordinates[1]}`
+                    )
+                ) // Add popup to marker
+                .addTo(map); // Add marker to the map
+
+            // Debugging: Log pinned coordinates
+            console.log("Pinned location:", coordinates);
+        });
+
+        // Search functionality
+        // Handle search input
+        document.getElementById('search-input').addEventListener('input', async function () {
+    const query = this.value;
+    const searchResultsContainer = document.getElementById('search-results');
+
+    if (query.length < 3) {
+        searchResultsContainer.innerHTML = '';
+        return;
+    }
+
+    const accessToken = 'bpk.iFfsd6-dNyJV9BhF1pb_FHpRu0aFU2miSLu9wYiCifqk'; // Replace with your Baato API key
+    const searchUrl = `https://api.baato.io/api/v1/search?key=${accessToken}&q=${query}&limit=5`;
+
+    try {
+        const searchResponse = await fetch(searchUrl);
+        const searchData = await searchResponse.json();
+
+        if (searchData.status === 200 && searchData.data.length > 0) {
+            searchResultsContainer.innerHTML = searchData.data.map(result => {
+                return `<div class="search-result" data-place-id="${result.placeId}">
+                            <b>${result.name}</b><br>${result.address || ''}
+                        </div>`;
+            }).join('');
+
+            // Add event listeners to search results
+            document.querySelectorAll('.search-result').forEach(item => {
+                item.addEventListener('click', async function () {
+                    const placeId = this.getAttribute('data-place-id');
+                    console.log("Selected placeId:", placeId);
+
+                    // Fetch details for the selected place using Places API
+                    const placesUrl = `https://api.baato.io/api/v1/places?key=${accessToken}&placeId=${placeId}`;
+                    try {
+                        const placesResponse = await fetch(placesUrl);
+                        const placesData = await placesResponse.json();
+                        console.log("Places API Response:", placesData);
+
+                        if (placesData.status === 200 && placesData.data.length > 0) {
+                            const { centroid } = placesData.data[0];
+
+                            if (!centroid || !centroid.lat || !centroid.lon) {
+                                alert("Coordinates not available for this location.");
+                                return;
+                            }
+
+                            // Fly to the selected place
+                            map.flyTo({
+                                center: [centroid.lon, centroid.lat],
+                                zoom: 14,
+                                essential: true,
+                            });
+
+                            // Add a marker to the selected place
+                            new mapboxgl.Marker({ color: "green" })
+                                .setLngLat([centroid.lon, centroid.lat])
+                                .setPopup(
+                                    new mapboxgl.Popup().setHTML(`<b>${placesData.data[0].name}</b><br>${placesData.data[0].address}`)
+                                )
+                                .addTo(map);
+
+                            // Clear search results
+                            searchResultsContainer.innerHTML = '';
+                        } else {
+                            alert("Unable to fetch coordinates for this location.");
+                        }
+                    } catch (error) {
+                        console.error("Places API error:", error);
+                        alert("Error fetching location details.");
+                    }
+                });
+            });
+        } else {
+            searchResultsContainer.innerHTML = '<div>No results found.</div>';
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        searchResultsContainer.innerHTML = '<div>Error fetching results.</div>';
+    }
+});
+
+
+
+
+    </script>
+</body>
 </html>
